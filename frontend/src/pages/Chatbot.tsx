@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, Mic, Upload, User, Bot, Loader2, FileText, LogOut, Download } from "lucide-react";
+import { 
+  ArrowLeft, Send, Mic, Upload, User, Bot, Loader2, 
+  FileText, LogOut, Download, LogIn 
+} from "lucide-react";
 import { sendToMLBackend } from "@/services/api";
 import { OTPVerification } from "@/components/OTPVerification";
 import { ChatHistory } from "@/components/ChatHistory";
@@ -26,6 +29,7 @@ const Chatbot = () => {
       timestamp: new Date(),
     }
   ]);
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -47,26 +51,27 @@ const Chatbot = () => {
           .select("*")
           .eq("id", user.id)
           .single();
+
         setProfile(profileData);
 
-        // Create or load conversation
         await loadOrCreateConversation(user.id);
       }
     };
 
     getUser();
 
-    // Check for prediction result from manual form
     const storedPrediction = localStorage.getItem("prediction_result");
     if (storedPrediction) {
       try {
         const prediction = JSON.parse(storedPrediction);
         setLastPrediction(prediction);
+
         const resultMessage: Message = {
           role: "assistant",
           content: formatPredictionResult(prediction),
           timestamp: new Date(),
         };
+
         setMessages(prev => [...prev, resultMessage]);
         localStorage.removeItem("prediction_result");
       } catch (error) {
@@ -76,7 +81,6 @@ const Chatbot = () => {
   }, []);
 
   const loadOrCreateConversation = async (userId: string) => {
-    // Get most recent conversation
     const { data: conversations } = await supabase
       .from("chat_conversations")
       .select("*")
@@ -88,13 +92,12 @@ const Chatbot = () => {
       setCurrentConversationId(conversations[0].id);
       await loadMessages(conversations[0].id);
     } else {
-      // Create new conversation
       await createNewConversation(userId);
     }
   };
 
   const createNewConversation = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("chat_conversations")
       .insert({
         user_id: userId,
@@ -103,29 +106,33 @@ const Chatbot = () => {
       .select()
       .single();
 
-    if (!error && data) {
+    if (data) {
       setCurrentConversationId(data.id);
-      setMessages([{
-        role: "assistant",
-        content: "Hello! I'm your loan eligibility assistant. I can help you check your loan eligibility. You can type your information, use voice input, or upload documents. How would you like to proceed?",
-        timestamp: new Date(),
-      }]);
+      setMessages([
+        {
+          role: "assistant",
+          content: "Hello! I'm your loan eligibility assistant. Let's begin!",
+          timestamp: new Date(),
+        }
+      ]);
     }
   };
 
   const loadMessages = async (conversationId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      setMessages(data.map(msg => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-        timestamp: new Date(msg.created_at),
-      })));
+    if (data) {
+      setMessages(
+        data.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+        }))
+      );
     }
   };
 
@@ -138,7 +145,6 @@ const Chatbot = () => {
       content: message.content,
     });
 
-    // Update conversation's updated_at
     await supabase
       .from("chat_conversations")
       .update({ updated_at: new Date().toISOString() })
@@ -148,11 +154,13 @@ const Chatbot = () => {
   const formatPredictionResult = (prediction: any) => {
     const eligible = prediction.eligible ? "✅ Eligible" : "❌ Not Eligible";
     const probability = `Probability: ${(prediction.probability * 100).toFixed(1)}%`;
-    const reason = prediction.reason || "Based on your financial profile and credit history.";
-    const suggestions = prediction.recommendations?.length 
-      ? `\n\nSuggestions:\n${prediction.recommendations.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}`
+    const reason = prediction.reason || "Based on your financial profile.";
+    const suggestions = prediction.recommendations?.length
+      ? `\n\nSuggestions:\n${prediction.recommendations
+          .map((s: string, i: number) => `${i + 1}. ${s}`)
+          .join("\n")}`
       : "";
-    
+
     return `${eligible}\n${probability}\n\nReason: ${reason}${suggestions}`;
   };
 
@@ -170,24 +178,17 @@ const Chatbot = () => {
     setInput("");
     setLoading(true);
 
-    try {
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: "Thank you for providing that information. To give you an accurate loan eligibility prediction, I'll need some specific details. Could you provide:\n\n• Your annual salary\n• Savings balance\n• Loan amount needed\n• Loan purpose\n• Employment type\n\nOr you can use the Manual Form for a complete assessment.",
-        timestamp: new Date(),
-      };
+    const assistantMessage: Message = {
+      role: "assistant",
+      content:
+        "Thank you! Could you provide your salary, savings, loan amount, purpose, and employment type? Or use Manual Form.",
+      timestamp: new Date(),
+    };
 
-      setMessages(prev => [...prev, assistantMessage]);
-      await saveMessage(assistantMessage);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    setMessages(prev => [...prev, assistantMessage]);
+    await saveMessage(assistantMessage);
+
+    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -203,69 +204,17 @@ const Chatbot = () => {
     if (!lastPrediction) {
       toast({
         title: "No Report Available",
-        description: "Complete a loan eligibility check first to generate a report",
+        description: "Complete a loan check first",
         variant: "destructive",
       });
       return;
     }
 
     generatePDFReport(lastPrediction, user?.email || "guest@example.com");
-    toast({
-      title: "Report Downloaded",
-      description: "Your loan eligibility report has been downloaded",
-    });
   };
 
-  const handleVoiceInput = () => {
-    toast({
-      title: "Voice Input",
-      description: "Voice input feature coming soon!",
-    });
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login to upload documents.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!profile?.two_fa_enabled) {
-      setShowOTPVerification(true);
-      return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Only images (JPG, PNG, WEBP), PDFs, and DOCX files are allowed.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "File Upload",
-      description: "Document processing feature coming soon!",
-    });
-  };
-
-  const profileIconColor = profile?.two_fa_enabled 
-    ? "border-green-500 bg-green-50" 
+  const profileIconColor = profile?.two_fa_enabled
+    ? "border-green-500 bg-green-50"
     : "border-red-500 bg-red-50";
 
   if (showOTPVerification && user) {
@@ -277,10 +226,6 @@ const Chatbot = () => {
           onVerified={() => {
             setShowOTPVerification(false);
             setProfile({ ...profile, two_fa_enabled: true });
-            toast({
-              title: "2FA Enabled",
-              description: "You can now upload documents",
-            });
           }}
           onCancel={() => setShowOTPVerification(false)}
         />
@@ -292,27 +237,15 @@ const Chatbot = () => {
     <div className="min-h-screen bg-gradient-accent flex">
       {/* Sidebar */}
       <div className="w-64 bg-card border-r p-4 space-y-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/")}
-          className="w-full justify-start"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Home
+        <Button variant="ghost" onClick={() => navigate("/")} className="w-full justify-start">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Home
         </Button>
 
-        <Button 
-          className="w-full" 
-          onClick={() => navigate("/manual-form")}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          Manual Form
+        <Button className="w-full" onClick={() => navigate("/manual-form")}>
+          <FileText className="mr-2 h-4 w-4" /> Manual Form
         </Button>
 
-        <Button 
-          className="w-full" 
-          onClick={() => user && createNewConversation(user.id)}
-        >
+        <Button className="w-full" onClick={() => user && createNewConversation(user.id)}>
           New Chat
         </Button>
 
@@ -334,32 +267,52 @@ const Chatbot = () => {
         {/* Header */}
         <div className="border-b bg-card p-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">Loan Eligibility Chat</h1>
+
+          {/* Right side icons */}
           <div className="flex items-center gap-2">
-            {lastPrediction && (
+
+            {lastPrediction && user && (
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleDownloadPDF}
-                title="Download PDF Report"
+                title="Download PDF"
+                className="transition-opacity duration-300 opacity-100"
               >
                 <Download className="h-5 w-5" />
               </Button>
             )}
+
+            {/* Guest → show rounded login icon only */}
+            {!user && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/login")}
+                className="rounded-full border transition-opacity duration-300 opacity-100"
+              >
+                <LogIn className="h-5 w-5" />
+              </Button>
+            )}
+
+            {/* Logged-in user → show profile + logout with fade animation */}
             {user && (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`rounded-full border-2 ${profileIconColor}`}
                   onClick={() => navigate("/profile")}
+                  className={`rounded-full border-2 ${profileIconColor} 
+                    transition-all duration-300 opacity-100 scale-100`}
                 >
                   <User className="h-5 w-5" />
                 </Button>
+
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  title="Logout"
+                  className="transition-all duration-300 opacity-100 scale-100"
                 >
                   <LogOut className="h-5 w-5" />
                 </Button>
@@ -371,31 +324,40 @@ const Chatbot = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4 max-w-3xl mx-auto">
-            {messages.map((message, index) => (
+            {messages.map((message, i) => (
               <div
-                key={index}
-                className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                key={i}
+                className={`flex gap-3 ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 {message.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                     <Bot className="h-5 w-5 text-primary-foreground" />
                   </div>
                 )}
-                <Card className={`p-4 max-w-[70%] ${
-                  message.role === "user" ? "gradient-primary text-primary-foreground" : "gradient-card"
-                }`}>
+
+                <Card
+                  className={`p-4 max-w-[70%] ${
+                    message.role === "user"
+                      ? "gradient-primary text-primary-foreground"
+                      : "gradient-card"
+                  }`}
+                >
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 </Card>
+
                 {message.role === "user" && (
-                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
                     <User className="h-5 w-5 text-accent-foreground" />
                   </div>
                 )}
               </div>
             ))}
+
             {loading && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                   <Bot className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <Card className="p-4 gradient-card">
@@ -406,7 +368,7 @@ const Chatbot = () => {
           </div>
         </ScrollArea>
 
-        {/* Input Area */}
+        {/* Input */}
         <div className="border-t bg-card p-4">
           <div className="max-w-3xl mx-auto flex gap-2">
             <Input
@@ -416,31 +378,25 @@ const Chatbot = () => {
               onKeyPress={(e) => e.key === "Enter" && handleSend()}
               className="flex-1"
             />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleVoiceInput}
-            >
+
+            <Button variant="outline" size="icon" onClick={() => toast({ title: "Coming soon!" })}>
               <Mic className="h-5 w-5" />
             </Button>
+
             <label>
-              <Button
-                variant="outline"
-                size="icon"
-                asChild
-                disabled={!user}
-              >
+              <Button variant="outline" size="icon" asChild disabled={!user}>
                 <span>
                   <Upload className="h-5 w-5" />
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp"
                     className="hidden"
-                    onChange={handleFileUpload}
+                    onChange={() => toast({ title: "Coming soon!" })}
                   />
                 </span>
               </Button>
             </label>
+
             <Button onClick={handleSend} disabled={loading || !input.trim()}>
               <Send className="h-5 w-5" />
             </Button>
