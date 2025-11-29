@@ -264,50 +264,62 @@ const Chatbot = () => {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="border-b bg-card p-4 flex justify-between items-center">
+        {/* Header — sticky with fade animation */}
+        <div
+          className="border-b bg-card p-4 flex justify-between items-center
+             sticky top-0 z-50 backdrop-blur-md"
+        >
           <h1 className="text-xl font-bold">Loan Eligibility Chat</h1>
 
           {/* Right side icons */}
           <div className="flex items-center gap-2">
 
+            {/* PDF (only if logged in & prediction exists) */}
             {lastPrediction && user && (
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleDownloadPDF}
                 title="Download PDF"
-                className="transition-opacity duration-300 opacity-100"
+                className="transition-all duration-300 opacity-100 scale-100"
               >
                 <Download className="h-5 w-5" />
               </Button>
             )}
 
-            {/* Guest → show rounded login icon only */}
+            {/* Guest → only rounded login icon */}
             {!user && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/login")}
-                className="rounded-full border transition-opacity duration-300 opacity-100"
+                className="
+                  rounded-full border transition-all duration-300
+                  opacity-100 scale-100
+                "
               >
                 <LogIn className="h-5 w-5" />
               </Button>
             )}
 
-            {/* Logged-in user → show profile + logout with fade animation */}
+            {/* Logged-in user */}
             {user && (
               <>
+                {/* Profile icon with fade/scale animation */}
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => navigate("/profile")}
-                  className={`rounded-full border-2 ${profileIconColor} 
-                    transition-all duration-300 opacity-100 scale-100`}
+                  className={`
+                    rounded-full border-2 ${profileIconColor}
+                    transition-all duration-300
+                    opacity-100 scale-100
+                  `}
                 >
                   <User className="h-5 w-5" />
                 </Button>
 
+                {/* Logout icon with fade/scale animation */}
                 <Button
                   variant="ghost"
                   size="icon"
