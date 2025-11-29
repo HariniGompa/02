@@ -1,3 +1,14 @@
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -37,6 +48,8 @@ const Chatbot = () => {
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [lastPrediction, setLastPrediction] = useState<any>(null);
+  const [showConsentDialog, setShowConsentDialog] = useState(false); // NEW: consent dialog state
+  const [downloadAfterVerification, setDownloadAfterVerification] = useState(false); // NEW: whether to download after OTP success
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -224,6 +237,8 @@ const Chatbot = () => {
     ? "border-green-500 bg-green-50"
     : "border-red-500 bg-red-50";
 
+  // If OTP verification UI is active — show it full screen.
+  // Note: onVerified will now also handle "download after verification" if requested.
   if (showOTPVerification && user) {
     return (
       <div className="min-h-screen bg-gradient-accent flex items-center justify-center p-4">
@@ -231,10 +246,24 @@ const Chatbot = () => {
           userId={user.id}
           email={user.email || ""}
           onVerified={() => {
+            // Set verified flag in UI
             setShowOTPVerification(false);
             setProfile({ ...profile, two_fa_enabled: true });
+
+            // If this OTP was triggered as part of a download consent flow,
+            // perform the download immediately.
+            if (downloadAfterVerification) {
+              setDownloadAfterVerification(false);
+              // slight delay ensures profile state is updated before download (not strictly required)
+              setTimeout(() => {
+                handleDownloadPDF();
+              }, 100);
+            }
           }}
-          onCancel={() => setShowOTPVerification(false)}
+          onCancel={() => {
+            setShowOTPVerification(false);
+            setDownloadAfterVerification(false);
+          }}
         />
       </div>
     );
@@ -281,17 +310,33 @@ const Chatbot = () => {
           {/* Right side icons */}
           <div className="flex items-center gap-2">
 
-            {/* PDF (only if logged in & prediction exists) */}
+            {/* PDF (only if logged in & prediction exists)
+                Behavior: if user is verified (profile.two_fa_enabled) -> immediate download
+                          else -> open consent dialog to proceed with verification */}
             {lastPrediction && user && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleDownloadPDF}
-                title="Download PDF"
-                className="transition-all duration-300 opacity-100 scale-100"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
+              <>
+                {profile?.two_fa_enabled ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleDownloadPDF}
+                    title="Download PDF"
+                    className="transition-all duration-300 opacity-100 scale-100"
+                  >
+                    <Download className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowConsentDialog(true)}
+                    title="Download PDF"
+                    className="transition-all duration-300 opacity-100 scale-100"
+                  >
+                    <Download className="h-5 w-5" />
+                  </Button>
+                )}
+              </>
             )}
 
             {/* Guest → only rounded login icon */}
@@ -422,6 +467,38 @@ const Chatbot = () => {
           </div>
         </div>
       </div>
+
+      {/* ---------------------- Consent Alert Dialog (root-level) ---------------------- */}
+      <AlertDialog open={showConsentDialog} onOpenChange={setShowConsentDialog}>
+        <AlertDialogTrigger asChild>
+          {/* invisible trigger - not used visually, kept for a11y if needed */}
+          <span />
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Verification Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              To download your loan eligibility report, we need to verify your identity via a one-time email code.
+              Would you like to proceed with verification?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowConsentDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                // Close dialog and open OTP verification UI,
+                // and mark that we should download after verification completes.
+                setShowConsentDialog(false);
+                setDownloadAfterVerification(true);
+                setShowOTPVerification(true);
+              }}
+            >
+              Verify & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* ----------------------------------------------------------------------------- */}
     </div>
   );
 };
