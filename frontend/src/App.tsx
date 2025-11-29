@@ -9,6 +9,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Profile = lazy(() => import("./pages/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile")); // <-- Add this
 const ManualForm = lazy(() => import("./pages/ManualForm"));
 const Chatbot = lazy(() => import("./pages/Chatbot"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -25,7 +26,6 @@ const App = () => (
       <Sonner />
 
       <BrowserRouter>
-        {/* Global Loader for lazy pages */}
         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
           <Routes>
             <Route path="/" element={<Landing />} />
@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/confirm" element={<ConfirmEmail />} />
             <Route path="/chatbot" element={<Chatbot />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/edit-profile" element={<EditProfile />} /> {/* <-- Add this */}
             <Route path="/manual-form" element={<ManualForm />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
