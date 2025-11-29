@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient"; // adjust if needed
-import { useRouter } from "next/navigation";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   const [profile, setProfile] = useState<any>({
@@ -53,7 +53,7 @@ export default function Profile() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        navigate("/login");
         return;
       }
 
@@ -83,7 +83,7 @@ export default function Profile() {
           <p className="text-gray-500">{profile.email}</p>
         </div>
         <button
-          onClick={() => router.push("/edit-profile")}
+          onClick={() => navigate("/edit-profile")}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Edit Profile
