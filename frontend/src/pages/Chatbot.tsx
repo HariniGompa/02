@@ -127,11 +127,18 @@ const Chatbot = () => {
 
     if (data) {
       setMessages(
-        data.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-        }))
+        data.map(msg => {
+          // Ensure the role is either 'user' or 'assistant'
+          const role = msg.role === 'user' || msg.role === 'assistant' 
+            ? msg.role 
+            : 'assistant'; // Default to 'assistant' if invalid role
+            
+          return {
+            role,
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+          };
+        })
       );
     }
   };
@@ -334,7 +341,7 @@ const Chatbot = () => {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-6 overflow-y-auto">
           <div className="space-y-4 max-w-3xl mx-auto">
             {messages.map((message, i) => (
               <div
@@ -380,8 +387,8 @@ const Chatbot = () => {
           </div>
         </ScrollArea>
 
-        {/* Input */}
-        <div className="border-t bg-card p-4">
+        {/* Input (sticky bottom) */}
+        <div className="border-t bg-card p-4 sticky bottom-0 z-50">
           <div className="max-w-3xl mx-auto flex gap-2">
             <Input
               placeholder="Type your message..."
