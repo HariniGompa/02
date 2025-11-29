@@ -17,30 +17,6 @@ const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-      setUser(user);
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      
-      if (profileData) {
-        setProfile(profileData);
-        setPhoneNumber(profileData.phone_number || "");
-      }
-    };
-
-    getUser();
-  }, [navigate]);
-
   const handleToggle2FA = async (enabled: boolean) => {
     setLoading(true);
     try {
@@ -69,6 +45,41 @@ const Profile = () => {
     }
   };
 
+  useEffect(() => {
+    const getUser = async () => {
+      console.log("Fetching user...");
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) console.error("User fetch error:", userError);
+      console.log("User:", user);
+
+      if (!user) {
+        console.log("No user, redirecting...");
+        navigate("/login");
+        return;
+      }
+
+      setUser(user);
+
+      console.log("Fetching profile...");
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      console.log("Profile:", profileData);
+      if (profileError) console.error("Profile fetch error:", profileError);
+
+      if (profileData) {
+        setProfile(profileData);
+        setPhoneNumber(profileData.phone_number || "");
+      }
+    };
+
+    getUser();
+  }, [navigate]);
+
   const handleUpdatePhone = async () => {
     setLoading(true);
     try {
@@ -94,7 +105,13 @@ const Profile = () => {
     }
   };
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-lg text-muted-foreground">Loading profile…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-accent p-4">
