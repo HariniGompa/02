@@ -38,7 +38,6 @@ const ManualForm = () => {
     loan_purpose: "",
     loan_amount: 0,
     repayment_term_months: 0,
-    bank_name: "",
     additional_income_sources: "",
     num_credit_cards: 0,
     avg_credit_utilization_pct: 0,
@@ -409,16 +408,6 @@ const ManualForm = () => {
                     value={formData.repayment_term_months}
                     onChange={(e) => updateField("repayment_term_months", parseInt(e.target.value))}
                     required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Bank Name</Label>
-                  <Input
-                    id="bank_name"
-                    value={formData.bank_name}
-                    onChange={(e) => updateField("bank_name", e.target.value)}
-                    placeholder="Enter bank name or leave blank"
                   />
                 </div>
 
