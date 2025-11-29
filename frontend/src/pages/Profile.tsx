@@ -104,6 +104,8 @@ const Profile = () => {
       setLoading(false);
     }
   };
+  console.log("URL:", import.meta.env.VITE_SUPABASE_URL);
+console.log("KEY:", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
   if (!profile) {
     return (
