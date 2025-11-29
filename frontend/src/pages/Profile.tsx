@@ -29,10 +29,6 @@ export default function Profile() {
     previous_loan_amount: "",
     total_emi: "",
     savings_balance: "",
-
-    loan_purpose: "",
-    loan_amount: "",
-    repayment_term: "",
     credit_history: "",
 
     rent_income: "",
@@ -43,7 +39,6 @@ export default function Profile() {
     loan_insurance: "",
   });
 
-  // Fetch profile from Supabase
   useEffect(() => {
     const getProfile = async () => {
       setLoading(true);
@@ -63,14 +58,47 @@ export default function Profile() {
         .eq("id", user.id)
         .single();
 
-      if (error) console.error(error);
-      else setProfile({ ...profile, ...data });
+      if (error) {
+        console.error("Supabase fetch error:", error);
+      } else if (data) {
+        // Map Supabase columns to profile state
+        setProfile({
+          username: data.username,
+          email: data.email,
+          gender: data.gender,
+          age: data.age,
+          education: data.education,
+          marital_status: data.marital_status,
+          dependents: data.dependents,
+          nationality: data.nationality,
+
+          job_type: data.job_type,
+          years_employed: data.years_of_employment, // mapping example
+          annual_salary: data.annual_salary,
+          collateral_value: data.collateral_value,
+          employment_type: data.employment_type,
+
+          previous_loan: data.previous_loan,
+          previous_loan_status: data.previous_loan_status,
+          previous_loan_amount: data.previous_loan_amount,
+          total_emi: data.total_emi,
+          savings_balance: data.savings_balance,
+          credit_history: data.credit_history,
+
+          rent_income: data.rent_income,
+          interest_income: data.interest_income,
+          num_credit_cards: data.num_credit_cards,
+          avg_credit_utilization: data.avg_credit_utilization,
+          late_payment_history: data.late_payment_history,
+          loan_insurance: data.loan_insurance,
+        });
+      }
 
       setLoading(false);
     };
 
     getProfile();
-  }, []);
+  }, [navigate]);
 
   if (loading) return <div className="p-4">Loading Profile...</div>;
 
@@ -90,7 +118,7 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* Section Component */}
+      {/* Personal Information */}
       <Section title="Personal Information">
         {Row("Username", profile.username)}
         {Row("Email", profile.email)}
@@ -102,6 +130,7 @@ export default function Profile() {
         {Row("Nationality", profile.nationality)}
       </Section>
 
+      {/* Employment Details */}
       <Section title="Employment Details">
         {Row("Job Type", profile.job_type)}
         {Row("Years of Employment", profile.years_employed)}
@@ -110,21 +139,17 @@ export default function Profile() {
         {Row("Employment Type", profile.employment_type)}
       </Section>
 
+      {/* Financial History */}
       <Section title="Financial History">
         {Row("Previous Loan", profile.previous_loan)}
         {Row("Previous Loan Status", profile.previous_loan_status)}
         {Row("Previous Loan Amount", profile.previous_loan_amount)}
         {Row("Total EMI Amount", profile.total_emi)}
         {Row("Savings Bank Balance", profile.savings_balance)}
-      </Section>
-
-      <Section title="Loan Requirements">
-        {Row("Loan Purpose", profile.loan_purpose)}
-        {Row("Loan Amount", profile.loan_amount)}
-        {Row("Repayment Term", profile.repayment_term)}
         {Row("Credit History", profile.credit_history)}
       </Section>
 
+      {/* Additional Income & Credit */}
       <Section title="Additional Income & Credit">
         {Row("Rent Income", profile.rent_income)}
         {Row("Interest Income", profile.interest_income)}
