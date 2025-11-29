@@ -48,8 +48,8 @@ const Chatbot = () => {
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [lastPrediction, setLastPrediction] = useState<any>(null);
-  const [showConsentDialog, setShowConsentDialog] = useState(false); // NEW: consent dialog state
-  const [downloadAfterVerification, setDownloadAfterVerification] = useState(false); // NEW: whether to download after OTP success
+  const [showConsentDialog, setShowConsentDialog] = useState(false); // consent dialog state
+  const [downloadAfterVerification, setDownloadAfterVerification] = useState(false); // whether to download after OTP success
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -233,9 +233,15 @@ const Chatbot = () => {
     generatePDFReport(lastPrediction, user?.email || "guest@example.com");
   };
 
+  // keep your existing border/bg helper, and add a stronger background for visibility
   const profileIconColor = profile?.two_fa_enabled
     ? "border-green-500 bg-green-50"
     : "border-red-500 bg-red-50";
+
+  // stronger solid bg for clearer green/red distinction
+  const profileBgClass = profile?.two_fa_enabled
+    ? "bg-green-600 text-white"
+    : "bg-red-600 text-white";
 
   // If OTP verification UI is active — show it full screen.
   // Note: onVerified will now also handle "download after verification" if requested.
@@ -357,13 +363,13 @@ const Chatbot = () => {
             {/* Logged-in user */}
             {user && (
               <>
-                {/* Profile icon with fade/scale animation */}
+                {/* Profile icon with stronger green/red background for verified vs normal users */}
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => navigate("/profile")}
                   className={`
-                    rounded-full border-2 ${profileIconColor}
+                    rounded-full border-2 ${profileIconColor} ${profileBgClass}
                     transition-all duration-300
                     opacity-100 scale-100
                   `}
