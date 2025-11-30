@@ -1,182 +1,185 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Shield } from "lucide-react";
+"use client";
 
-const Profile = () => {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [loading, setLoading] = useState(false);
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+
+export default function Profile() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+
+  const [profile, setProfile] = useState<any>({
+    username: "",
+    email: "",
+    gender: "",
+    age: "",
+    education: "",
+    marital_status: "",
+    dependents: "",
+    nationality: "",
+
+    job_type: "",
+    years_employed: "",
+    annual_salary: "",
+    collateral_value: "",
+    employment_type: "",
+
+    previous_loan: "",
+    previous_loan_status: "",
+    previous_loan_amount: "",
+    total_emi: "",
+    savings_balance: "",
+    credit_history: "",
+
+    rent_income: "",
+    interest_income: "",
+    num_credit_cards: "",
+    avg_credit_utilization: "",
+    late_payment_history: "",
+    loan_insurance: "",
+  });
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+    const getProfile = async () => {
+      setLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         navigate("/login");
         return;
       }
-      setUser(user);
 
-      const { data: profileData } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
-      
-      if (profileData) {
-        setProfile(profileData);
-        setPhoneNumber(profileData.phone_number || "");
+
+      if (error) {
+        console.error("Supabase fetch error:", error);
+      } else if (data) {
+        // Map Supabase columns to profile state
+        setProfile({
+          username: data.username,
+          email: data.email,
+          gender: data.gender,
+          age: data.age,
+          education: data.education,
+          marital_status: data.marital_status,
+          dependents: data.dependents,
+          nationality: data.nationality,
+
+          job_type: data.job_type,
+          years_employed: data.years_of_employment, // mapping example
+          annual_salary: data.annual_salary,
+          collateral_value: data.collateral_value,
+          employment_type: data.employment_type,
+
+          previous_loan: data.previous_loan,
+          previous_loan_status: data.previous_loan_status,
+          previous_loan_amount: data.previous_loan_amount,
+          total_emi: data.total_emi,
+          savings_balance: data.savings_balance,
+          credit_history: data.credit_history,
+
+          rent_income: data.rent_income,
+          interest_income: data.interest_income,
+          num_credit_cards: data.num_credit_cards,
+          avg_credit_utilization: data.avg_credit_utilization,
+          late_payment_history: data.late_payment_history,
+          loan_insurance: data.loan_insurance,
+        });
       }
+
+      setLoading(false);
     };
 
-    getUser();
+    getProfile();
   }, [navigate]);
 
-  const handleToggle2FA = async (enabled: boolean) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ two_fa_enabled: enabled })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
-      setProfile({ ...profile, two_fa_enabled: enabled });
-      toast({
-        title: enabled ? "2FA Enabled" : "2FA Disabled",
-        description: enabled 
-          ? "Two-factor authentication is now active" 
-          : "Two-factor authentication has been disabled",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePhone = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ phone_number: phoneNumber })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Phone number updated",
-        description: "Your phone number has been saved",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!profile) return null;
+  if (loading) return <div className="p-4">Loading Profile...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-accent p-4">
-      <div className="container max-w-2xl mx-auto py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/chatbot")}
-          className="mb-6"
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Header */}
+      <div className="mb-6 bg-white p-6 shadow rounded-xl flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">{profile.username}</h1>
+          <p className="text-gray-500">{profile.email}</p>
+        </div>
+        <button
+          onClick={() => navigate("/edit-profile")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Chatbot
-        </Button>
-
-        <Card className="p-8 gradient-card animate-scale-in">
-          <div className="text-center mb-8">
-            <div className={`w-20 h-20 mx-auto rounded-full border-4 flex items-center justify-center mb-4 ${
-              profile.two_fa_enabled ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"
-            }`}>
-              <Shield className={`h-10 w-10 ${profile.two_fa_enabled ? "text-green-500" : "text-red-500"}`} />
-            </div>
-            <h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
-            <p className="text-muted-foreground">{user?.email}</p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input value={profile.username || ""} disabled />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value={user?.email || ""} disabled />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (for SMS 2FA)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1234567890"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-                <Button onClick={handleUpdatePhone} disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-t pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold">Two-Factor Authentication</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {profile.two_fa_enabled 
-                      ? "Your account is protected with 2FA" 
-                      : "Enable 2FA for enhanced security (required for document uploads)"}
-                  </p>
-                </div>
-                <Switch
-                  checked={profile.two_fa_enabled}
-                  onCheckedChange={handleToggle2FA}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="pt-4">
-              <p className="text-sm text-muted-foreground text-center">
-                Status: {profile.two_fa_enabled 
-                  ? "✅ 2FA Active - Full access to all features" 
-                  : "⚠️ 2FA Inactive - Document upload restricted"}
-              </p>
-            </div>
-          </div>
-        </Card>
+          Edit Profile
+        </button>
       </div>
+
+      {/* Personal Information */}
+      <Section title="Personal Information">
+        {Row("Username", profile.username)}
+        {Row("Email", profile.email)}
+        {Row("Gender", profile.gender)}
+        {Row("Age", profile.age)}
+        {Row("Education", profile.education)}
+        {Row("Marital Status", profile.marital_status)}
+        {Row("Dependents", profile.dependents)}
+        {Row("Nationality", profile.nationality)}
+      </Section>
+
+      {/* Employment Details */}
+      <Section title="Employment Details">
+        {Row("Job Type", profile.job_type)}
+        {Row("Years of Employment", profile.years_employed)}
+        {Row("Annual Salary", profile.annual_salary)}
+        {Row("Collateral Value", profile.collateral_value)}
+        {Row("Employment Type", profile.employment_type)}
+      </Section>
+
+      {/* Financial History */}
+      <Section title="Financial History">
+        {Row("Previous Loan", profile.previous_loan)}
+        {Row("Previous Loan Status", profile.previous_loan_status)}
+        {Row("Previous Loan Amount", profile.previous_loan_amount)}
+        {Row("Total EMI Amount", profile.total_emi)}
+        {Row("Savings Bank Balance", profile.savings_balance)}
+        {Row("Credit History", profile.credit_history)}
+      </Section>
+
+      {/* Additional Income & Credit */}
+      <Section title="Additional Income & Credit">
+        {Row("Rent Income", profile.rent_income)}
+        {Row("Interest Income", profile.interest_income)}
+        {Row("Number of Credit Cards", profile.num_credit_cards)}
+        {Row("Average Credit Utilization (%)", profile.avg_credit_utilization)}
+        {Row("Late Payment History", profile.late_payment_history)}
+        {Row("Loan Insurance", profile.loan_insurance)}
+      </Section>
     </div>
   );
-};
+}
 
-export default Profile;
+/* ---------- Reusable Components ---------- */
+
+function Section({ title, children }: any) {
+  return (
+    <div className="bg-white p-6 mb-6 shadow rounded-xl">
+      <h2 className="font-semibold mb-4 border-b pb-2">{title}</h2>
+      <div className="grid grid-cols-2 gap-4">{children}</div>
+    </div>
+  );
+}
+
+function Row(label: string, value: any) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-sm text-gray-600">{label}</span>
+      <span className="text-base bg-gray-100 p-2 rounded-md">
+        {value || "-"}
+      </span>
+    </div>
+  );
+}

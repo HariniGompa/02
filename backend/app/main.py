@@ -51,7 +51,6 @@ async def root():
         "message": "Backend is running on Render!"
     }
 
-
 # HEALTH CHECK
 @app.get("/health")
 async def health_check():

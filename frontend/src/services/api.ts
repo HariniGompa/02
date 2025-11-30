@@ -2,6 +2,29 @@
 // Replace ML_API_URL with your actual HuggingFace Spaces endpoint
 const ML_API_URL = import.meta.env.VITE_ML_API_URL;
 
+/**
+ * Send message to Rasa chatbot
+ * @param message The message text to send
+ * @param sender Unique identifier for the user sending the message
+ * @returns Array of messages from Rasa or empty array on error
+ */
+export const sendToRasa = async (message: string, sender: string) => {
+  try {
+    const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, sender }),
+    });
+
+    const data = await response.json();
+    // data is an array of messages from Rasa
+    return data; 
+  } catch (error) {
+    console.error("Rasa API Error:", error);
+    return [];
+  }
+};
+
 
 export interface MLPredictionRequest {
   username?: string;

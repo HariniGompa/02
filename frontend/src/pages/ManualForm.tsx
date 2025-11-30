@@ -16,7 +16,7 @@ const ManualForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     username: "",
@@ -38,7 +38,6 @@ const ManualForm = () => {
     loan_purpose: "",
     loan_amount: 0,
     repayment_term_months: 0,
-    bank_name: "",
     additional_income_sources: "",
     num_credit_cards: 0,
     avg_credit_utilization_pct: 0,
@@ -51,10 +50,8 @@ const ManualForm = () => {
     setLoading(true);
 
     try {
-      // Call ML backend
       const prediction = await sendManualFormToMLBackend(formData);
 
-      // Save to database if user is logged in
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from("loan_applications").insert({
@@ -66,9 +63,8 @@ const ManualForm = () => {
         });
       }
 
-      // Store prediction in localStorage and navigate to chatbot
       localStorage.setItem("prediction_result", JSON.stringify(prediction));
-      
+
       toast({
         title: "Application Submitted",
         description: "Redirecting to view your results...",
@@ -104,12 +100,11 @@ const ManualForm = () => {
 
         <Card className="p-8 gradient-card">
           <h1 className="text-3xl font-bold mb-6">Loan Application Form</h1>
-          
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Information */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Personal Information</h2>
-              
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
@@ -192,7 +187,6 @@ const ManualForm = () => {
             {/* Employment Information */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Employment Information</h2>
-              
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="job_title">Job Title</Label>
@@ -250,7 +244,6 @@ const ManualForm = () => {
             {/* Financial Information */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Financial Information</h2>
-              
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="savings_balance">Savings / Bank Balance</Label>
@@ -371,7 +364,6 @@ const ManualForm = () => {
             {/* Loan Details */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Loan Details</h2>
-              
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="loan_purpose">Loan Purpose</Label>
@@ -411,25 +403,16 @@ const ManualForm = () => {
                     required
                   />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Bank Name</Label>
-                  <Input
-                    id="bank_name"
-                    value={formData.bank_name}
-                    onChange={(e) => updateField("bank_name", e.target.value)}
-                    placeholder="Enter bank name or leave blank"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="wants_loan_insurance"
-                    checked={formData.wants_loan_insurance}
-                    onCheckedChange={(checked) => updateField("wants_loan_insurance", checked)}
-                  />
-                  <Label htmlFor="wants_loan_insurance">Want Loan Insurance</Label>
-                </div>
+              {/* Moved here for full-width below grid */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="wants_loan_insurance"
+                  checked={formData.wants_loan_insurance}
+                  onCheckedChange={(checked) => updateField("wants_loan_insurance", checked)}
+                />
+                <Label htmlFor="wants_loan_insurance">Want Loan Insurance</Label>
               </div>
             </div>
 
