@@ -1,4 +1,3 @@
-from app.extract import router as extract_router
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +5,19 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+# -----------------------------
+# Load environment variables
+# -----------------------------
 load_dotenv()
 
+# -----------------------------
+# Create FastAPI app
+# -----------------------------
 app = FastAPI(title="Loan Advisor Backend", version="1.0.0")
 
-# CORS --- set to frontend render URL
+# -----------------------------
+# CORS
+# -----------------------------
 FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
 
 app.add_middleware(
@@ -21,7 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Supabase client
+# -----------------------------
+# Supabase Initialization
+# -----------------------------
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -31,7 +40,9 @@ else:
     supabase: Client = create_client(supabase_url, supabase_key)
 
 
+# -----------------------------
 # MODELS
+# -----------------------------
 class OTPRequest(BaseModel):
     email: str
     userId: str
@@ -42,7 +53,9 @@ class VerifyOTPRequest(BaseModel):
     otp: str
 
 
-# ROOT ENDPOINT (Fixes "Not Found")
+# -----------------------------
+# ROOT
+# -----------------------------
 @app.get("/")
 async def root():
     return {
@@ -51,55 +64,64 @@ async def root():
         "message": "Backend is running on Render!"
     }
 
+
+# -----------------------------
 # HEALTH CHECK
+# -----------------------------
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "message": "Backend service is running"}
+    return {"status": "ok"}
 
 
-# SEND OTP FUNCTION
+# -----------------------------
+# SEND OTP
+# -----------------------------
 @app.post("/api/send-otp")
 async def send_otp(request: OTPRequest):
-    try:
-        if not supabase:
-            raise HTTPException(status_code=500, detail="Supabase not configured")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
 
+    try:
         response = supabase.functions.invoke(
             "send-otp-email",
-            body={
-                "email": request.email,
-                "userId": request.userId
-            }
+            body={"email": request.email, "userId": request.userId}
         )
         return response
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# VERIFY OTP FUNCTION
+# -----------------------------
+# VERIFY OTP
+# -----------------------------
 @app.post("/api/verify-otp")
 async def verify_otp(request: VerifyOTPRequest):
-    try:
-        if not supabase:
-            raise HTTPException(status_code=500, detail="Supabase not configured")
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
 
+    try:
         response = supabase.functions.invoke(
             "verify-otp",
-            body={
-                "userId": request.userId,
-                "otp": request.otp
-            }
+            body={"userId": request.userId, "otp": request.otp}
         )
         return response
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-# REGISTER ROUTERS
+
+
+# -----------------------------
+# ROUTERS (Correct place)
+# -----------------------------
+from app.extract import router as extract_router
+from ML_services.routes.inference_router import router as inference_router
+
 app.include_router(extract_router, prefix="/api", tags=["Extraction"])
+app.include_router(inference_router, prefix="/api", tags=["ML"])
 
 
-# SERVER STARTUP
+# -----------------------------
+# START SERVER
+# -----------------------------
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 10000))
