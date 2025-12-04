@@ -111,7 +111,7 @@ export default function Profile() {
           <p className="text-gray-500">{profile.email}</p>
         </div>
         <button
-          onClick={() => navigate("/edit-profile")}
+        onClick={() => navigate("/profile/edit")}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Edit Profile

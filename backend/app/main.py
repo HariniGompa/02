@@ -1,9 +1,9 @@
+# app/main.py
 import os
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from fastapi.middleware.cors import CORSMiddleware
 
 # -----------------------------
 # Load environment variables
@@ -11,15 +11,19 @@ from supabase import create_client, Client
 load_dotenv()
 
 # -----------------------------
-# Create FastAPI app
+# FastAPI App
 # -----------------------------
-app = FastAPI(title="Loan Advisor Backend", version="1.0.0")
+app = FastAPI(
+    title="Loan Advisor Backend",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
 # -----------------------------
-# CORS
+# CORS Middleware
 # -----------------------------
 FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL],
@@ -31,30 +35,31 @@ app.add_middleware(
 # -----------------------------
 # Supabase Initialization
 # -----------------------------
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-if not supabase_url or not supabase_key:
-    supabase = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    supabase: Client = create_client(supabase_url, supabase_key)
-
-
-# -----------------------------
-# MODELS
-# -----------------------------
-class OTPRequest(BaseModel):
-    email: str
-    userId: str
-
-
-class VerifyOTPRequest(BaseModel):
-    userId: str
-    otp: str
-
+    supabase = None
+    print("Warning: Supabase not configured")
 
 # -----------------------------
-# ROOT
+# Import Routers
+# -----------------------------
+from app.api.inference_router import router as inference_router
+from app.api.extract_router import router as extract_router
+from app.api.otp_router import router as otp_router
+
+# -----------------------------
+# Include Routers
+# -----------------------------
+app.include_router(inference_router, prefix="/api/inference", tags=["ML Model"])
+app.include_router(extract_router, prefix="/api/extract", tags=["Document Extraction"])
+app.include_router(otp_router, prefix="/api", tags=["OTP Verification"])
+
+# -----------------------------
+# Root & Health Check
 # -----------------------------
 @app.get("/")
 async def root():
@@ -64,63 +69,12 @@ async def root():
         "message": "Backend is running on Render!"
     }
 
-
-# -----------------------------
-# HEALTH CHECK
-# -----------------------------
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
-
 # -----------------------------
-# SEND OTP
-# -----------------------------
-@app.post("/api/send-otp")
-async def send_otp(request: OTPRequest):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-
-    try:
-        response = supabase.functions.invoke(
-            "send-otp-email",
-            body={"email": request.email, "userId": request.userId}
-        )
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# -----------------------------
-# VERIFY OTP
-# -----------------------------
-@app.post("/api/verify-otp")
-async def verify_otp(request: VerifyOTPRequest):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-
-    try:
-        response = supabase.functions.invoke(
-            "verify-otp",
-            body={"userId": request.userId, "otp": request.otp}
-        )
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# -----------------------------
-# ROUTERS (Correct place)
-# -----------------------------
-from app.extract import router as extract_router
-from ML_services.routes.inference_router import router as inference_router
-
-app.include_router(extract_router, prefix="/api", tags=["Extraction"])
-app.include_router(inference_router, prefix="/api", tags=["ML"])
-
-
-# -----------------------------
-# START SERVER
+# Uvicorn Entry Point
 # -----------------------------
 if __name__ == "__main__":
     import uvicorn

@@ -9,6 +9,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Profile = lazy(() => import("./pages/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
 const ManualForm = lazy(() => import("./pages/ManualForm"));
 const Chatbot = lazy(() => import("./pages/Chatbot"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/confirm" element={<ConfirmEmail />} />
             <Route path="/chatbot" element={<Chatbot />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/edit" element={<EditProfile />} />
             <Route path="/manual-form" element={<ManualForm />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
