@@ -4,9 +4,6 @@ python-dotenv
 supabase
 httpx
 pydantic
-fastapi
-uvicorn
-pydantic
 joblib
 lightgbm
 scikit-learn
@@ -14,3 +11,6 @@ pandas
 numpy
 python-multipart
 email-validator
+PyPDF2>=3.0.0
+Pillow>=10.0.0
+pytesseract>=0.3.10

@@ -9,8 +9,9 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,36 @@ const Chatbot = () => {
       voice: true,
     }
   ]);
+
+  // Add saveMessages function
+  const saveMessages = async (newMessages: Message[]) => {
+    if (!currentConversationId || !user?.id) return;
+    
+    try {
+      const messagesToSave = newMessages.map(msg => ({
+        id: uuidv4(),
+        conversation_id: currentConversationId,
+        user_id: user.id,
+        role: msg.role,
+        content: msg.content,
+        created_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert(messagesToSave);
+
+      if (error) throw error;
+      
+    } catch (error) {
+      console.error('Error saving messages:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save conversation",
+        variant: "destructive"
+      });
+    }
+  };
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -93,7 +124,10 @@ const Chatbot = () => {
     };
   };
   const stopListening = () => { if (recognition) recognition.stop(); setListening(false); };
-  const toggleListening = () => { listening ? stopListening() : startListening(); };
+  const toggleListening = (e: React.MouseEvent) => {
+    e.preventDefault();
+    listening ? stopListening() : startListening();
+  };
 
   // TTS for messages
   const speakMessage = (text: string) => {
@@ -201,7 +235,8 @@ const Chatbot = () => {
     }
   };
 
-  const handleSend = async () => {
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!input.trim()) return;
     const userMessage: Message = { role: "user", content: input, timestamp: new Date(), voice: true };
     setMessages(prev => [...prev, userMessage]);
@@ -309,11 +344,91 @@ const Chatbot = () => {
           <div className="max-w-3xl mx-auto flex gap-2">
             <label>
               <Button variant="outline" size="icon" asChild disabled={!user}>
-                <span><Upload className="h-5 w-5"/><input type="file" className="hidden" onChange={()=>toast({title:"Coming soon!"})}/></span>
+                <span>
+                  <Upload className="h-5 w-5"/>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      // Check file size (max 10MB)
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast({
+                          title: "File too large",
+                          description: "Maximum file size is 10MB",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+
+                      const formData = new FormData();
+                      formData.append('file', file);
+
+                      try {
+                        setLoading(true);
+                        const response = await fetch('http://localhost:8000/api/extract/run', {
+                          method: 'POST',
+                          body: formData,
+                        });
+
+                        if (!response.ok) {
+                          throw new Error('Failed to process document');
+                        }
+
+                        const data = await response.json();
+                        
+                        // Add user message
+                        const userMsg: Message = {
+                          role: 'user',
+                          content: `Uploaded document: ${file.name}`,
+                          timestamp: new Date()
+                        };
+                        
+                        // Add assistant response
+                        const assistantMsg: Message = {
+                          role: 'assistant',
+                          content: `I've analyzed your document. Here's what I found:\n\n` +
+                            `- Loan Amount: $${data.extracted_features.loan_amount || 'N/A'}\n` +
+                            `- Annual Salary: $${data.extracted_features.annual_salary || 'N/A'}\n` +
+                            `- Loan Eligibility: ${data.eligible ? '✅ Approved' : '❌ Not Approved'}\n` +
+                            `- Confidence: ${(data.probability * 100).toFixed(1)}%\n\n` +
+                            `Would you like to proceed with this information?`,
+                          timestamp: new Date(),
+                          voice: true
+                        };
+
+                        setMessages(prev => [...prev, userMsg, assistantMsg]);
+                        speakMessage(assistantMsg.content);
+                        
+                        // Save to conversation if user is logged in
+                        if (currentConversationId) {
+                          await saveMessages([userMsg, assistantMsg]);
+                        }
+
+                      } catch (error) {
+                        console.error('Error processing document:', error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to process document. Please try again.",
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setLoading(false);
+                        // Reset file input
+                        if (e.target) {
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }
+                    }}
+                  />
+                </span>
               </Button>
             </label>
             <Input placeholder="Type your message..." value={input} onChange={(e)=>setInput(e.target.value)} onKeyPress={(e)=>e.key==="Enter" && handleSend()} className="flex-1"/>
-            <Button variant={listening?"secondary":"outline"} size="icon" onClick={toggleListening} disabled={!SpeechRecognition}><Mic className={`h-5 w-5 ${listening?"animate-pulse":""}`}/></Button>
+            <Button variant={listening?"secondary":"outline"} size="icon" onClick={(e) => toggleListening(e)} disabled={!SpeechRecognition}><Mic className={`h-5 w-5 ${listening?"animate-pulse":""}`}/></Button>
             <Button variant={voiceOutputEnabled?"secondary":"outline"} size="icon" onClick={()=>setVoiceOutputEnabled(!voiceOutputEnabled)}><Speaker className="h-5 w-5"/></Button>
             <Button onClick={handleSend} disabled={loading || !input.trim()}><Send className="h-5 w-5"/></Button>
           </div>
