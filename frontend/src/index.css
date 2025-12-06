@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Fintech Color System - Modern blues and gradients */
+    --background: 220 25% 98%;
+    --foreground: 220 15% 15%;
+    
+    --primary: 220 90% 56%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 220 90% 70%;
+    
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 220 15% 25%;
+    
+    --accent: 200 85% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 10% 45%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+    
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 220 90% 56%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --success: 142 76% 45%;
+    --warning: 38 92% 50%;
+    
+    --radius: 0.75rem;
+    
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 20% 8%;
+    --foreground: 220 10% 95%;
+    
+    --primary: 220 90% 56%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 220 90% 70%;
+    
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 10% 90%;
+    
+    --accent: 200 85% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 60%;
+    
+    --card: 220 20% 10%;
+    --card-foreground: 220 10% 95%;
+    
+    --popover: 220 20% 10%;
+    --popover-foreground: 220 10% 95%;
+    
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 220 90% 56%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', sans-serif;
+    @apply font-bold;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(220, 90%, 56%) 0%, hsl(200, 85%, 50%) 100%);
+  }
+  
+  .gradient-accent {
+    background: linear-gradient(180deg, hsl(220, 25%, 98%) 0%, hsl(220, 20%, 95%) 100%);
+  }
+  
+  .gradient-card {
+    background: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(220, 25%, 99%) 100%);
+  }
+  
+  .shadow-glow {
+    box-shadow: 0 0 20px hsl(220 90% 56% / 0.3);
+  }
+  
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
