@@ -64,7 +64,7 @@ const Chatbot = () => {
     
     try {
       const messagesToSave = newMessages.map(msg => ({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         conversation_id: currentConversationId,
         user_id: user.id,
         role: msg.role,
@@ -74,7 +74,8 @@ const Chatbot = () => {
 
       const { error } = await supabase
         .from('chat_messages')
-        .insert(messagesToSave);
+        .insert(messagesToSave)
+        .select();
 
       if (error) throw error;
       
@@ -369,9 +370,12 @@ const Chatbot = () => {
 
                       try {
                         setLoading(true);
-                        const response = await fetch('http://localhost:8000/api/extract/run', {
+                        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/extract/run`, {
                           method: 'POST',
                           body: formData,
+                          headers: {
+                            'Accept': 'application/json',
+                          }
                         });
 
                         if (!response.ok) {
