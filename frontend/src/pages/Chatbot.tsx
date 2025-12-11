@@ -285,12 +285,20 @@ const Chatbot = () => {
         await saveMessage(botMessage);
         speakMessage(botMessage.content);
 
+        // Normalize report URL to a full backend URL so it works in all environments
+        const backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+        const fullReportUrl = data.report_url
+          ? (data.report_url.startsWith("http")
+              ? data.report_url
+              : `${backendBase}${data.report_url}`)
+          : "";
+
         const prediction = {
           eligible: data.eligibility === "eligible",
           probability: data.probability,
           reason: data.reasons?.join(", ") || "",
           recommendations: [],
-          report_url: data.report_url,
+          report_url: fullReportUrl,
         };
         setLastPrediction(prediction);
         localStorage.setItem("prediction_result", JSON.stringify(prediction));
@@ -316,7 +324,25 @@ const Chatbot = () => {
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); toast({ title: "Logged out", description: "You have been logged out successfully" }); navigate("/"); };
-  const handleDownloadPDF = () => { if (!lastPrediction) { toast({ title: "No Report Available", description: "Complete a loan check first", variant: "destructive" }); return; } generatePDFReport(lastPrediction, user?.email || "guest@example.com"); };
+  const handleDownloadPDF = () => {
+    if (!lastPrediction) {
+      toast({ title: "No Report Available", description: "Complete a loan check first", variant: "destructive" });
+      return;
+    }
+
+    // Prefer backend-generated PDF if report_url is available
+    if (lastPrediction.report_url) {
+      try {
+        window.open(lastPrediction.report_url, "_blank");
+        return;
+      } catch (err) {
+        console.error("Failed to open backend PDF, falling back to client PDF:", err);
+      }
+    }
+
+    // Fallback: generate client-side PDF
+    generatePDFReport(lastPrediction, user?.email || "guest@example.com");
+  };
 
   const profileIconColor = profile?.two_fa_enabled ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50";
   const profileBgClass = profile?.two_fa_enabled ? "bg-green-600 text-white" : "bg-red-600 text-white";

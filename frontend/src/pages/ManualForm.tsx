@@ -118,7 +118,14 @@ const ManualForm = () => {
     try {
       const payload = sanitizeForSubmit(formData);
       const response = await submitLoanApplication(payload);
-      setResult(response);
+
+      // Normalize report URL to full backend URL so it works in all environments
+      const backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+      const fullReportUrl = response.report_url
+        ? `${backendBase}${response.report_url}`
+        : "";
+
+      setResult({ ...response, report_url: fullReportUrl });
 
       // Prepare prediction object for chatbot UI
       const predictionForChat = {
@@ -128,7 +135,7 @@ const ManualForm = () => {
         probability: response.probability,
         reason: response.reasons?.join(", ") || "",
         recommendations: [] as string[],
-        report_url: response.report_url,
+        report_url: fullReportUrl,
         session_id: response.session_id,
       };
 
