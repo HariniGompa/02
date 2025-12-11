@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -11,32 +13,11 @@ export default function Profile() {
   const [profile, setProfile] = useState<any>({
     username: "",
     email: "",
-    gender: "",
-    age: "",
-    education: "",
-    marital_status: "",
-    dependents: "",
-    nationality: "",
-
-    job_type: "",
-    years_employed: "",
-    annual_salary: "",
-    collateral_value: "",
-    employment_type: "",
-
-    previous_loan: "",
-    previous_loan_status: "",
-    previous_loan_amount: "",
-    total_emi: "",
-    savings_balance: "",
-    credit_history: "",
-
-    rent_income: "",
-    interest_income: "",
-    num_credit_cards: "",
-    avg_credit_utilization: "",
-    late_payment_history: "",
-    loan_insurance: "",
+    phone_number: "",
+    contact_consent: false,
+    two_fa_enabled: false,
+    created_at: "",
+    updated_at: "",
   });
 
   useEffect(() => {
@@ -65,32 +46,11 @@ export default function Profile() {
         setProfile({
           username: data.username,
           email: data.email,
-          gender: data.gender,
-          age: data.age,
-          education: data.education,
-          marital_status: data.marital_status,
-          dependents: data.dependents,
-          nationality: data.nationality,
-
-          job_type: data.job_type,
-          years_employed: data.years_of_employment, // mapping example
-          annual_salary: data.annual_salary,
-          collateral_value: data.collateral_value,
-          employment_type: data.employment_type,
-
-          previous_loan: data.previous_loan,
-          previous_loan_status: data.previous_loan_status,
-          previous_loan_amount: data.previous_loan_amount,
-          total_emi: data.total_emi,
-          savings_balance: data.savings_balance,
-          credit_history: data.credit_history,
-
-          rent_income: data.rent_income,
-          interest_income: data.interest_income,
-          num_credit_cards: data.num_credit_cards,
-          avg_credit_utilization: data.avg_credit_utilization,
-          late_payment_history: data.late_payment_history,
-          loan_insurance: data.loan_insurance,
+          phone_number: data.phone_number,
+          contact_consent: data.contact_consent,
+          two_fa_enabled: data.two_fa_enabled,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
         });
       }
 
@@ -104,6 +64,16 @@ export default function Profile() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Back to Chatbot Button */}
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/chatbot")}
+        className="mb-4"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Chatbot
+      </Button>
+      
       {/* Header */}
       <div className="mb-6 bg-white p-6 shadow rounded-xl flex items-center justify-between">
         <div>
@@ -122,41 +92,19 @@ export default function Profile() {
       <Section title="Personal Information">
         {Row("Username", profile.username)}
         {Row("Email", profile.email)}
-        {Row("Gender", profile.gender)}
-        {Row("Age", profile.age)}
-        {Row("Education", profile.education)}
-        {Row("Marital Status", profile.marital_status)}
-        {Row("Dependents", profile.dependents)}
-        {Row("Nationality", profile.nationality)}
+        {Row("Phone Number", profile.phone_number)}
       </Section>
 
-      {/* Employment Details */}
-      <Section title="Employment Details">
-        {Row("Job Type", profile.job_type)}
-        {Row("Years of Employment", profile.years_employed)}
-        {Row("Annual Salary", profile.annual_salary)}
-        {Row("Collateral Value", profile.collateral_value)}
-        {Row("Employment Type", profile.employment_type)}
+      {/* Account Settings */}
+      <Section title="Account Settings">
+        {Row("Contact Consent", profile.contact_consent ? "Enabled" : "Disabled")}
+        {Row("Two-Factor Authentication", profile.two_fa_enabled ? "Enabled" : "Disabled")}
       </Section>
 
-      {/* Financial History */}
-      <Section title="Financial History">
-        {Row("Previous Loan", profile.previous_loan)}
-        {Row("Previous Loan Status", profile.previous_loan_status)}
-        {Row("Previous Loan Amount", profile.previous_loan_amount)}
-        {Row("Total EMI Amount", profile.total_emi)}
-        {Row("Savings Bank Balance", profile.savings_balance)}
-        {Row("Credit History", profile.credit_history)}
-      </Section>
-
-      {/* Additional Income & Credit */}
-      <Section title="Additional Income & Credit">
-        {Row("Rent Income", profile.rent_income)}
-        {Row("Interest Income", profile.interest_income)}
-        {Row("Number of Credit Cards", profile.num_credit_cards)}
-        {Row("Average Credit Utilization (%)", profile.avg_credit_utilization)}
-        {Row("Late Payment History", profile.late_payment_history)}
-        {Row("Loan Insurance", profile.loan_insurance)}
+      {/* Account Information */}
+      <Section title="Account Information">
+        {Row("Account Created", new Date(profile.created_at).toLocaleDateString())}
+        {Row("Last Updated", new Date(profile.updated_at).toLocaleDateString())}
       </Section>
     </div>
   );

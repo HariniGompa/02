@@ -1,135 +1,102 @@
-// ML API integration functions
-const getMLApiUrl = () => {
-  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:10000';
-  if (!baseUrl) {
-    console.error('VITE_BACKEND_URL is not set in environment variables');
-    throw new Error('Backend URL is not configured');
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+export interface LoanApplication {
+  username?: string;
+  gender?: string;
+  marital_status?: string;
+  dependents?: number;
+  education?: string;
+  age?: number;
+  job_title?: string;
+  annual_salary?: number;
+  collateral_value?: number;
+  savings_balance?: number;
+  employment_type?: string;
+  years_of_employment?: number;
+  previous_balance_flag?: boolean;
+  previous_loan_status?: string;
+  previous_loan_amount?: number;
+  total_emi_amount_per_month?: number;
+  loan_purpose?: string;
+  loan_amount?: number;
+  repayment_term_months?: number;
+  additional_income_sources?: string;
+  num_credit_cards?: number;
+  avg_credit_utilization_pct?: number;
+  late_payment_history?: boolean;
+  wants_loan_insurance?: boolean;
+}
+
+export interface LoanResponse {
+  probability: number;
+  reasons: string[];
+  report_url: string;
+  message?: string;
+}
+
+export const checkBackendHealth = async (): Promise<boolean> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/health`);
+    return response.status === 200;
+  } catch (error) {
+    console.error('Backend health check failed:', error);
+    return false;
   }
-  return `${baseUrl}/api/inference/predict`;
 };
 
-  /**
-   * Send message to Rasa chatbot
-   * @param message The message text to send
-   * @param sender Unique identifier for the user sending the message
-   * @returns Array of messages from Rasa or empty array on error
-   */
-  export const sendToRasa = async (message: string, sender: string) => {
-    try {
-      const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sender }),
-      });
-
-      // --- SAFE JSON HANDLING FIX ---
-      let data = [];
-      try {
-        data = await response.json();
-      } catch {
-        console.warn("Rasa returned non-JSON or empty response.");
-      }
-      return Array.isArray(data) ? data : [];
-      // ------------------------------
-
-    } catch (error) {
-      console.error("Rasa API Error:", error);
-      return [];
+export const submitLoanApplication = async (data: LoanApplication): Promise<LoanResponse> => {
+  try {
+    const response = await axios.post<LoanResponse>(`${API_BASE_URL}/manual-form`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error submitting loan application:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(error.response.data?.message || 'Failed to submit application');
     }
-  };
-
-
-  export interface MLPredictionRequest {
-    username?: string;
-    gender?: string;
-    marital_status?: string;
-    dependents?: number;
-    education?: string;
-    age?: number;
-    job_title?: string;
-    annual_salary?: number;
-    collateral_value?: number;
-    savings_balance?: number;
-    employment_type?: string;
-    years_of_employment?: number;
-    previous_balance_flag?: boolean;
-    previous_loan_status?: string;
-    previous_loan_amount?: number;
-    total_emi_amount_per_month?: number;
-    loan_purpose?: string;
-    loan_amount?: number;
-    repayment_term_months?: number;
-    bank_name?: string;
-    additional_income_sources?: string;
-    num_credit_cards?: number;
-    avg_credit_utilization_pct?: number;
-    late_payment_history?: boolean;
-    wants_loan_insurance?: boolean;
+    throw new Error('Network error occurred');
   }
+};
 
-  export interface MLPredictionResponse {
-    eligible: boolean;
-    probability: number;
-    threshold?: number;
-    shap?: any;
-    explanation_summary?: string;
-    recommendations?: string[];
+export const downloadReport = async (reportUrl: string): Promise<void> => {
+  try {
+    const response = await axios.get(reportUrl, { 
+      responseType: 'blob',
+      baseURL: API_BASE_URL
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `loan-report-${Date.now()}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    console.error('Error downloading report:', error);
+    throw new Error('Failed to download report');
   }
+};
 
-  /**
-   * Send chatbot message data to ML backend
-   */
-  export async function sendToMLBackend(
-    messageData: MLPredictionRequest
-  ): Promise<MLPredictionResponse> {
+// Keep existing Rasa functions for backward compatibility
+export const sendToRasa = async (message: string, sender: string) => {
+  try {
+    const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, sender }),
+    });
+
+    let data = [];
     try {
-      const response = await fetch(getMLApiUrl(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(messageData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`ML API Error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Error calling ML backend:", error);
-      throw error;
+      data = await response.json();
+    } catch {
+      console.warn("Rasa returned non-JSON or empty response.");
     }
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Rasa API Error:", error);
+    return [];
   }
-
-  /**
-   * Send manual form data to ML backend
-   */
-  export async function sendManualFormToMLBackend(
-    formData: MLPredictionRequest
-  ): Promise<MLPredictionResponse> {
-    try {
-      const response = await fetch(getMLApiUrl(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`ML API Error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Error calling ML backend:", error);
-      throw error;
-    }
-  }
-
-  export function setMLApiUrl(url: string) {
-    console.log(`ML API URL would be set to: ${url}`);
-  }
+};

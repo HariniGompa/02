@@ -1,50 +1,52 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { sendManualFormToMLBackend } from "@/services/api";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { submitLoanApplication, downloadReport, type LoanApplication } from "@/services/api";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 const ManualForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ probability: number; reasons: string[]; report_url: string } | null>(null);
 
   /**
    * NOTE:
    * - Numeric inputs are initialized as empty strings ("") so inputs show blank instead of 0.
    * - We convert and validate before submit.
    */
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LoanApplication>({
     username: "",
     gender: "",
     marital_status: "",
-    dependents: "",                    // number (int)
+    dependents: 0,
     education: "",
-    age: "",                           // number (int)
+    age: 0,
     job_title: "",
-    annual_salary: "",                 // number (float)
-    collateral_value: "",              // number
-    savings_balance: "",               // number
+    annual_salary: 0,
+    collateral_value: 0,
+    savings_balance: 0,
     employment_type: "",
-    years_of_employment: "",           // number (float)
+    years_of_employment: 0,
     previous_balance_flag: false,
     previous_loan_status: "",
-    previous_loan_amount: "",          // number
-    total_emi_amount_per_month: "",    // number
+    previous_loan_amount: 0,
+    total_emi_amount_per_month: 0,
     loan_purpose: "",
-    loan_amount: "",                   // number
-    repayment_term_months: "",         // number (int)
+    loan_amount: 0,
+    repayment_term_months: 0,
     additional_income_sources: "",
-    num_credit_cards: "",              // number (int)
-    avg_credit_utilization_pct: "",    // number (float)
+    num_credit_cards: 0,
+    avg_credit_utilization_pct: 0,
     late_payment_history: false,
     wants_loan_insurance: false,
   });
@@ -108,15 +110,15 @@ const ManualForm = () => {
     return cleaned;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setResult(null);
 
     try {
       const payload = sanitizeForSubmit(formData);
-
-      // call backend (mock or real)
-      const prediction = await sendManualFormToMLBackend(payload);
+      const response = await submitLoanApplication(payload);
+      setResult(response);
 
       // store in supabase if user exists
       try {
@@ -125,9 +127,9 @@ const ManualForm = () => {
           await supabase.from("loan_applications").insert({
             user_id: user.id,
             input_data: payload,
-            eligibility: prediction?.eligible ? "Eligible" : "Not Eligible",
-            probability: prediction?.probability ?? null,
-            recommendations: prediction?.recommendations?.join?.(", ") || null,
+            eligibility: response.probability >= 0.7 ? "Eligible" : "Not Eligible",
+            probability: response.probability,
+            recommendations: response.reasons?.join?.(", ") || null,
           });
         }
       } catch (sbErr) {
@@ -135,24 +137,90 @@ const ManualForm = () => {
         console.warn("Supabase insert failed:", sbErr);
       }
 
-      localStorage.setItem("prediction_result", JSON.stringify(prediction));
-
       toast({
-        title: "Application Submitted",
-        description: "Redirecting to view your results...",
+        title: "Application submitted successfully!",
+        description: "Your loan application has been processed.",
       });
-
-      navigate("/chatbot");
     } catch (error) {
-      console.error("ManualForm submit error:", error);
+      console.error("Error submitting application:", error);
       toast({
         title: "Error",
-        description: (error && error.message) ? error.message : "Failed to process application",
+        description: error instanceof Error ? error.message : "Failed to submit application",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle report download
+  const handleDownloadReport = async () => {
+    if (!result?.report_url) return;
+    
+    try {
+      await downloadReport(result.report_url);
+      toast({
+        title: "Download started",
+        description: "Your report is being downloaded.",
+      });
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      toast({
+        title: "Download failed",
+        description: "Could not download the report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Render results
+  const renderResults = () => {
+    if (!result) return null;
+
+    const probability = result.probability * 100;
+    const isEligible = probability >= 70; // Example threshold
+
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Loan Application Result</CardTitle>
+          <CardDescription>
+            {isEligible ? 'Congratulations! Your loan application looks promising.' : 'Your loan application needs review.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span>Approval Probability</span>
+                <span>{probability.toFixed(1)}%</span>
+              </div>
+              <Progress value={probability} className="h-2" />
+            </div>
+
+            {result.reasons && result.reasons.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2">Key Factors:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {result.reasons.map((reason, index) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => setResult(null)}>
+            Back to Form
+          </Button>
+          <Button onClick={handleDownloadReport}>
+            <Download className="mr-2 h-4 w-4" />
+            Download Full Report
+          </Button>
+        </CardFooter>
+      </Card>
+    );
   };
 
   return (
@@ -490,6 +558,7 @@ const ManualForm = () => {
               Submit Application
             </Button>
           </form>
+          {renderResults()}
         </Card>
       </div>
     </div>
