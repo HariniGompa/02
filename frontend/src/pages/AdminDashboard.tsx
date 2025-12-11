@@ -49,71 +49,15 @@ const AdminDashboard = () => {
   const fetchApplications = async () => {
     setLoading(true);
 
-    // ⭐ Updated consistent demo data
     const demoData = [
-      {
-        id: "1",
-        eligibility: "Eligible",
-        probability: 0.91,
-        created_at: "2025-12-10T09:15:00",
-        profiles: { email: "aditya.rao@example.com", username: "Aditya Rao" }
-      },
-      {
-        id: "2",
-        eligibility: "Not Eligible",
-        probability: 0.42,
-        created_at: "2025-12-10T11:32:00",
-        profiles: { email: null, username: "Megha Sharma" }
-      },
-      {
-        id: "3",
-        eligibility: "Eligible",
-        probability: 0.88,
-        created_at: "2025-12-10T14:55:00",
-        profiles: { email: "rohan.verma@example.com", username: "Rohan Verma" }
-      },
-      {
-        id: "4",
-        eligibility: "Not Eligible",
-        probability: 0.33,
-        created_at: "2025-12-11T10:05:00",
-        profiles: { email: null, username: "Sana Iqbal" }
-      },
-      {
-        id: "5",
-        eligibility: "Eligible",
-        probability: 0.79,
-        created_at: "2025-12-11T12:45:00",
-        profiles: { email: "vkumar@example.com", username: "Vishal Kumar" }
-      },
-      {
-        id: "6",
-        eligibility: "Not Eligible",
-        probability: 0.56,
-        created_at: "2025-12-11T15:20:00",
-        profiles: { email: null, username: "Harsha Patil" }
-      },
-      {
-        id: "7",
-        eligibility: "Eligible",
-        probability: 0.93,
-        created_at: "2025-12-10T17:40:00",
-        profiles: { email: "tanya.k@example.com", username: "Tanya Kaur" }
-      },
-      {
-        id: "8",
-        eligibility: "Not Eligible",
-        probability: 0.22,
-        created_at: "2025-12-11T19:10:00",
-        profiles: { email: null, username: "Karthik J" }
-      },
-      {
-        id: "9",
-        eligibility: "Eligible",
-        probability: 0.95,
-        created_at: "2025-12-10T21:55:00",
-        profiles: { email: "ritus@example.com", username: "Ritu S" }
-      }
+      { id: "1", eligibility: "Eligible", probability: 0.85, created_at: "2025-12-10T08:15:00", profiles: { email: "harinigompa999@gmail.com", username: "harini1" } },
+      { id: "2", eligibility: "Not Eligible", probability: 0.40, created_at: "2025-12-10T09:45:00", profiles: { username: "hari2" } },
+      { id: "3", eligibility: "Eligible", probability: 0.92, created_at: "2025-12-10T11:30:00", profiles: { email: "harinigompa976@gmail.com", username: "harini5" } },
+      { id: "4", eligibility: "Not Eligible", probability: 0.30, created_at: "2025-12-10T14:20:00", profiles: { username: "harini1" } },
+      { id: "5", eligibility: "Eligible", probability: 0.78, created_at: "2025-12-11T07:50:00", profiles: { email: "sahasahasra235@gmail.com", username: "hari2" } },
+      { id: "6", eligibility: "Not Eligible", probability: 0.55, created_at: "2025-12-11T10:10:00", profiles: { username: "harini5" } },
+      { id: "7", eligibility: "Eligible", probability: 0.88, created_at: "2025-12-11T15:25:00", profiles: { email: "gompaharini27@gmail.com", username: "harini1" } },
+      { id: "8", eligibility: "Not Eligible", probability: 0.25, created_at: "2025-12-11T18:40:00", profiles: { username: "hari2" } },
     ];
 
     try {
@@ -129,7 +73,7 @@ const AdminDashboard = () => {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Supabase fetch error:", error);
+        console.error("Supabase error while fetching applications:", error);
         setApplications(demoData);
         setFilteredApplications(demoData);
         return;
@@ -138,9 +82,8 @@ const AdminDashboard = () => {
       const finalData = data && data.length > 0 ? data : demoData;
       setApplications(finalData);
       setFilteredApplications(finalData);
-
     } catch (error: any) {
-      console.error("Unexpected fetch error:", error);
+      console.error("Unexpected error while fetching applications:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -165,7 +108,6 @@ const AdminDashboard = () => {
       app.profiles?.username?.toLowerCase().includes(query.toLowerCase()) ||
       app.eligibility?.toLowerCase().includes(query.toLowerCase())
     );
-
     setFilteredApplications(filtered);
   };
 
@@ -177,11 +119,9 @@ const AdminDashboard = () => {
         app.profiles?.username || "N/A",
         app.eligibility || "N/A",
         app.probability ? `${(app.probability * 100).toFixed(2)}%` : "N/A",
-        new Date(app.created_at).toLocaleDateString()
+        new Date(app.created_at).toLocaleString()
       ])
-    ]
-      .map(row => row.join(","))
-      .join("\n");
+    ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -213,35 +153,25 @@ const AdminDashboard = () => {
           <TableRow key={app.id}>
             <TableCell>{app.profiles?.username || "N/A"}</TableCell>
             <TableCell>{app.profiles?.email || "N/A"}</TableCell>
-
             <TableCell>
-              <span
-                className={`px-2 py-1 rounded text-xs font-semibold ${
-                  app.eligibility === "Eligible"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }`}
-              >
+              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                app.eligibility === "Eligible" 
+                  ? "bg-green-100 text-green-800" 
+                  : "bg-red-100 text-red-800"
+              }`}>
                 {app.eligibility}
               </span>
             </TableCell>
-
+            <TableCell>{app.probability ? `${(app.probability * 100).toFixed(2)}%` : "N/A"}</TableCell>
+            <TableCell>{new Date(app.created_at).toLocaleString()}</TableCell>
             <TableCell>
-              {app.probability ? `${(app.probability * 100).toFixed(2)}%` : "N/A"}
-            </TableCell>
-
-            <TableCell>{new Date(app.created_at).toLocaleDateString()}</TableCell>
-
-            <TableCell>
-              <Button
-                size="sm"
+              <Button 
+                size="sm" 
                 variant="outline"
-                onClick={() =>
-                  toast({
-                    title: "Email Feature",
-                    description: "Email integration coming soon!",
-                  })
-                }
+                onClick={() => toast({
+                  title: "Email Feature",
+                  description: "Email integration coming soon!",
+                })}
               >
                 <Mail className="h-4 w-4" />
               </Button>
@@ -291,12 +221,10 @@ const AdminDashboard = () => {
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Applications</h3>
             <p className="text-3xl font-bold">{applications.length}</p>
           </Card>
-
           <Card className="p-6 gradient-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Eligible</h3>
             <p className="text-3xl font-bold text-green-600">{eligibleApps.length}</p>
           </Card>
-
           <Card className="p-6 gradient-card">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Not Eligible</h3>
             <p className="text-3xl font-bold text-red-600">{notEligibleApps.length}</p>
@@ -310,7 +238,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="eligible">Eligible</TabsTrigger>
               <TabsTrigger value="not-eligible">Not Eligible</TabsTrigger>
             </TabsList>
-
+            
             <TabsContent value="all">
               {loading ? (
                 <p className="text-center text-muted-foreground py-8">Loading...</p>
@@ -320,7 +248,7 @@ const AdminDashboard = () => {
                 renderTable(filteredApplications)
               )}
             </TabsContent>
-
+            
             <TabsContent value="eligible">
               {eligibleApps.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No eligible applications</p>
@@ -328,7 +256,7 @@ const AdminDashboard = () => {
                 renderTable(eligibleApps)
               )}
             </TabsContent>
-
+            
             <TabsContent value="not-eligible">
               {notEligibleApps.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No ineligible applications</p>
