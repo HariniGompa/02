@@ -99,6 +99,7 @@ const Chatbot = () => {
   const [downloadAfterVerification, setDownloadAfterVerification] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true); // Head speaker
+  const [chatbotSessionId] = useState<string>(() => uuidv4());
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -210,29 +211,72 @@ const Chatbot = () => {
     const eligible = prediction.eligible ? "✅ Eligible" : "❌ Not Eligible";
     const probability = `Probability: ${(prediction.probability * 100).toFixed(1)}%`;
     const reason = prediction.reason || "Based on your financial profile.";
-    const suggestions = prediction.recommendations?.length ? `\n\nSuggestions:\n${prediction.recommendations.map((s: string, i: number) => `${i+1}. ${s}`).join("\n")}` : "";
+    const suggestions = prediction.recommendations?.length
+      ? `\n\nSuggestions:\n${prediction.recommendations
+          .map((s: string, i: number) => `${i + 1}. ${s}`)
+          .join("\n")}`
+      : "";
     return `${eligible}\n${probability}\n\nReason: ${reason}${suggestions}`;
   };
 
-  // ---------- Rasa Integration ----------
-  const sendMessageToRasa = async (message: string) => {
+  // ---------- FastAPI Chatbot Integration ----------
+  const sendMessageToBackend = async (message: string) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_RASA_URL}/webhooks/rest/webhook`, {
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+      const params = new URLSearchParams({ session_id: chatbotSessionId });
+      if (message.trim()) {
+        params.append("answer", message.trim());
+      }
+
+      const response = await fetch(`${baseUrl}/chatbot-form?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sender: user?.id || "guest", message }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
       const data = await response.json();
-      // Rasa can return multiple messages
-      for (const item of data) {
-        const botMessage: Message = { role: "assistant", content: item.text || "", timestamp: new Date(), voice: true };
-        setMessages(prev => [...prev, botMessage]);
+
+      if (data.status === "in_progress" && data.question) {
+        const botMessage: Message = {
+          role: "assistant",
+          content: data.question,
+          timestamp: new Date(),
+          voice: true,
+        };
+        setMessages((prev) => [...prev, botMessage]);
         await saveMessage(botMessage);
         speakMessage(botMessage.content);
+      } else if (data.status === "completed") {
+        const summary = `Eligibility: ${data.eligibility === "eligible" ? "✅ Eligible" : "❌ Not Eligible"}\n` +
+          `Probability: ${(data.probability * 100).toFixed(1)}%` +
+          (data.reasons?.length ? `\n\nReasons:\n- ${data.reasons.join("\n- ")}` : "");
+
+        const botMessage: Message = {
+          role: "assistant",
+          content: summary,
+          timestamp: new Date(),
+          voice: true,
+        };
+        setMessages((prev) => [...prev, botMessage]);
+        await saveMessage(botMessage);
+        speakMessage(botMessage.content);
+
+        const prediction = {
+          eligible: data.eligibility === "eligible",
+          probability: data.probability,
+          reason: data.reasons?.join(", ") || "",
+          recommendations: [],
+          report_url: data.report_url,
+        };
+        setLastPrediction(prediction);
+        localStorage.setItem("prediction_result", JSON.stringify(prediction));
       }
     } catch (error) {
-      console.error("Rasa error:", error);
-      toast({ title: "Rasa Error", description: "Failed to get bot response", variant: "destructive" });
+      console.error("Backend chatbot error:", error);
+      toast({ title: "Error", description: "Failed to get response from backend", variant: "destructive" });
     }
   };
 
@@ -244,7 +288,7 @@ const Chatbot = () => {
     await saveMessage(userMessage);
     const messageToSend = input;
     setInput(""); setLoading(true);
-    await sendMessageToRasa(messageToSend);
+    await sendMessageToBackend(messageToSend);
     setLoading(false);
   };
 

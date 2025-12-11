@@ -1,8 +1,7 @@
-# main.py
 import io
 import uuid
 import os
-from typing import Optional
+from typing import Optional, Dict
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,24 +10,24 @@ import matplotlib.pyplot as plt
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-
-# Ensure a folder for reports
 import tempfile
+
+# -------------------- Setup --------------------
 REPORT_DIR = os.path.join(tempfile.gettempdir(), 'reports')
 os.makedirs(REPORT_DIR, exist_ok=True)
 
 app = FastAPI(title="Loan Eligibility Mock Backend")
 
-# Allow your frontend domain or allow all during demo
+# Allow all origins (for demo)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change to your domain for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Pydantic model for the full form
+# -------------------- Pydantic Models --------------------
 class ManualForm(BaseModel):
     username: Optional[str] = ""
     gender: Optional[str] = ""
@@ -55,9 +54,9 @@ class ManualForm(BaseModel):
     late_payment_history: Optional[bool] = False
     wants_loan_insurance: Optional[bool] = False
 
-# Helper: compute mock probability (0.0 - 1.0) and reasons
+# -------------------- Helper Functions --------------------
 def compute_mock_probability(payload: ManualForm):
-    # Basic normalized factors
+    # Same scoring logic as before
     salary = max(payload.annual_salary or 0.0, 0.0)
     emi = max(payload.total_emi_amount_per_month or 0.0, 0.0)
     monthly_income = salary / 12.0 if salary > 0 else 0.0
@@ -70,9 +69,8 @@ def compute_mock_probability(payload: ManualForm):
     prev_status = (payload.previous_loan_status or "").lower()
     loan_amount = max(payload.loan_amount or 0.0, 0.0)
 
-    score = 0.5  # base
+    score = 0.5
 
-    # Income contribution (strong positive)
     if monthly_income > 0:
         if monthly_income > 50000:
             score += 0.2
@@ -83,7 +81,6 @@ def compute_mock_probability(payload: ManualForm):
         else:
             score -= 0.05
 
-    # EMI burden negative (higher EMI reduces)
     if monthly_income > 0:
         emi_ratio = emi / (monthly_income + 1e-6)
         if emi_ratio < 0.2:
@@ -95,13 +92,11 @@ def compute_mock_probability(payload: ManualForm):
         else:
             score -= 0.12
 
-    # Savings & collateral positive
     if savings > 50000:
         score += 0.06
     if collateral > 0:
         score += min(0.08, collateral / (loan_amount + 1e-6) * 0.05)
 
-    # Credit utilization negative
     if utilization < 30:
         score += 0.06
     elif utilization < 60:
@@ -109,13 +104,11 @@ def compute_mock_probability(payload: ManualForm):
     else:
         score -= 0.07
 
-    # Employment stability
     if years_worked >= 3:
         score += 0.05
     elif years_worked < 1:
         score -= 0.03
 
-    # Previous loan status / flags
     if prev_status in ["default", "charged off", "rejected"]:
         score -= 0.18
     elif prev_status in ["paid", "closed", "settled"]:
@@ -123,15 +116,12 @@ def compute_mock_probability(payload: ManualForm):
     if previous_flag:
         score -= 0.05
 
-    # Late payment history
     if late_history:
         score -= 0.1
 
-    # Facing too many cards lowers score
     if payload.num_credit_cards and payload.num_credit_cards >= 4:
         score -= 0.03
 
-    # Loan amount relative to salary
     if salary > 0:
         ratio = loan_amount / (salary + 1e-6)
         if ratio > 2.5:
@@ -139,16 +129,11 @@ def compute_mock_probability(payload: ManualForm):
         elif ratio < 0.5:
             score += 0.03
 
-    # Wants insurance -> minor positive
     if payload.wants_loan_insurance:
         score += 0.02
 
-    # Clamp score 0..1
-    prob = max(0.0, min(1.0, score))
-    # Slight deterministic scaling to map to friendly percentages
-    return prob
+    return max(0.0, min(1.0, score))
 
-# Helper: derive human readable reasons when low probability
 def reasons_for_ineligibility(payload: ManualForm, prob: float):
     reasons = []
     salary = payload.annual_salary or 0.0
@@ -170,20 +155,16 @@ def reasons_for_ineligibility(payload: ManualForm, prob: float):
         reasons.append("Outstanding previous loan balance flagged.")
     if payload.num_credit_cards and payload.num_credit_cards >= 6:
         reasons.append("Too many active credit cards.")
-    # If nothing specific and prob low, give a generic reason
     if not reasons and prob < 0.5:
         reasons.append("Availability of credit and stability of income need improvement.")
     return reasons
 
-# Create a small visualization (bar chart of factor contributions)
 def create_chart_image(payload: ManualForm, prob: float, out_path: str):
     labels = ["Income", "EMI Burden", "Savings", "Collateral", "Credit Util"]
-    # crude scoring breakdown for visualization (0-1)
     salary = payload.annual_salary or 0.0
     monthly_income = salary / 12.0 if salary else 0.0
     income_score = min(1.0, monthly_income / 50000.0)
-    emi = payload.total_emi_amount_per_month or 0.0
-    emi_score = max(0.0, 1.0 - min(1.0, emi / (monthly_income + 1e-6)))
+    emi_score = max(0.0, 1.0 - min(1.0, (payload.total_emi_amount_per_month or 0.0) / (monthly_income + 1e-6)))
     savings_score = min(1.0, (payload.savings_balance or 0.0) / 200000.0)
     collateral_score = min(1.0, (payload.collateral_value or 0.0) / (payload.loan_amount + 1e-6))
     credit_score = max(0.0, 1.0 - min(1.0, (payload.avg_credit_utilization_pct or 0.0) / 100.0))
@@ -201,7 +182,6 @@ def create_chart_image(payload: ManualForm, prob: float, out_path: str):
     plt.savefig(out_path, bbox_inches="tight")
     plt.close()
 
-# Build PDF report
 def build_pdf(payload: ManualForm, prob: float, reasons: list, filename: str):
     img_path = f"/tmp/{filename}.png"
     create_chart_image(payload, prob, img_path)
@@ -209,20 +189,18 @@ def build_pdf(payload: ManualForm, prob: float, reasons: list, filename: str):
 
     c = canvas.Canvas(pdf_path, pagesize=A4)
     width, height = A4
-
     margin = 40
     y = height - margin
+
     c.setFont("Helvetica-Bold", 16)
     c.drawString(margin, y, f"Loan Eligibility Report — {payload.username or 'Applicant'}")
     y -= 28
-
     c.setFont("Helvetica", 11)
     c.drawString(margin, y, f"Eligibility Probability: {prob*100:.1f}%")
     y -= 18
     c.drawString(margin, y, f"Result: {'Eligible' if prob >= 0.5 else 'Not Eligible'}")
     y -= 24
 
-    # Add key fields
     c.setFont("Helvetica-Bold", 12)
     c.drawString(margin, y, "Key Applicant Details")
     y -= 18
@@ -251,7 +229,6 @@ def build_pdf(payload: ManualForm, prob: float, reasons: list, filename: str):
         c.drawString(margin, y, "No negative reasons detected. Application looks good.")
         y -= 14
 
-    # Draw chart image
     y -= 8
     try:
         img = ImageReader(img_path)
@@ -262,12 +239,11 @@ def build_pdf(payload: ManualForm, prob: float, reasons: list, filename: str):
             y = height - margin - img_h
         c.drawImage(img, margin, y - img_h, width=img_w, height=img_h)
     except Exception as ex:
-        # If image fails, ignore (report still created)
         print("Failed to draw image in report:", ex)
 
     c.showPage()
     c.save()
-    # cleanup chart image
+
     try:
         os.remove(img_path)
     except Exception:
@@ -275,39 +251,26 @@ def build_pdf(payload: ManualForm, prob: float, reasons: list, filename: str):
 
     return pdf_path
 
-# Endpoint: health
+# -------------------- API Endpoints --------------------
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "loan-mock-backend"}
 
-# Endpoint: manual form - main POST
+# Manual form endpoint
 @app.post("/manual-form")
 async def manual_form(payload: ManualForm, request: Request):
-    # Deterministic id so results are reproducible for same input during demo
     prob = compute_mock_probability(payload)
-    reasons = []
-    if prob < 0.5:
-        reasons = reasons_for_ineligibility(payload, prob)
-
+    reasons = reasons_for_ineligibility(payload, prob) if prob < 0.5 else []
+    file_id = str(uuid.uuid4())
+    filename = f"loan_report_{file_id}"
+    pdf_path = build_pdf(payload, prob, reasons, filename)
     result = {
         "status": "success",
         "eligibility": "eligible" if prob >= 0.5 else "not eligible",
         "probability": round(float(prob), 4),
-        "reasons": reasons,  # empty list if eligible
+        "reasons": reasons,
+        "report_url": f"/reports/{os.path.basename(pdf_path)}"
     }
-
-    # Build pdf report synchronously and return URL to download
-    file_id = str(uuid.uuid4())
-    filename = f"loan_report_{file_id}"
-    try:
-        pdf_path = build_pdf(payload, prob, reasons, filename)
-        # for demo we return a direct path that Render serves (see below)
-        result["report_url"] = f"/reports/{os.path.basename(pdf_path)}"
-    except Exception as ex:
-        # If PDF creation fails, still return JSON
-        result["report_url"] = None
-        print("PDF generation failed:", ex)
-
     return JSONResponse(content=result)
 
 # Serve reports
@@ -317,3 +280,99 @@ async def get_report(filename: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Report not found")
     return FileResponse(path, media_type="application/pdf", filename=filename)
+
+# -------------------- Chatbot-guided form endpoint --------------------
+# Tracks session state for chatbot input
+CHAT_SESSIONS: Dict[str, dict] = {}
+CHAT_FIELDS = [
+    "username", "age", "gender", "marital_status", "dependents", "education",
+    "job_title", "employment_type", "years_of_employment", "annual_salary",
+    "collateral_value", "savings_balance", "previous_balance_flag",
+    "previous_loan_status", "previous_loan_amount", "total_emi_amount_per_month",
+    "loan_purpose", "loan_amount", "repayment_term_months",
+    "additional_income_sources", "num_credit_cards", "avg_credit_utilization_pct",
+    "late_payment_history", "wants_loan_insurance"
+]
+FIELD_QUESTIONS = {
+    "username": "What's your name?",
+    "age": "What is your age?",
+    "gender": "What is your gender?",
+    "marital_status": "Are you married, single, or other?",
+    "dependents": "How many dependents do you have?",
+    "education": "What is your highest education?",
+    "job_title": "What is your current occupation?",
+    "employment_type": "Employment type (salaried/self-employed)?",
+    "years_of_employment": "How many years have you been employed?",
+    "annual_salary": "What is your annual salary?",
+    "collateral_value": "Value of collateral if any?",
+    "savings_balance": "Current savings balance?",
+    "previous_balance_flag": "Do you have any outstanding previous loan balance? (yes/no)",
+    "previous_loan_status": "Status of previous loan (paid/default/other)?",
+    "previous_loan_amount": "Previous loan amount if any?",
+    "total_emi_amount_per_month": "Total EMI amount per month?",
+    "loan_purpose": "Purpose of the loan?",
+    "loan_amount": "How much loan do you want?",
+    "repayment_term_months": "Repayment term in months?",
+    "additional_income_sources": "Any additional sources of income?",
+    "num_credit_cards": "How many credit cards do you have?",
+    "avg_credit_utilization_pct": "Average credit utilization percentage?",
+    "late_payment_history": "Have you had any late payments? (yes/no)",
+    "wants_loan_insurance": "Do you want loan insurance? (yes/no)"
+}
+
+@app.post("/chatbot-form")
+async def chatbot_form(session_id: str, answer: Optional[str] = None):
+    """
+    Chatbot-guided input. Use session_id to track user progress.
+    """
+    # Initialize session if not exists
+    if session_id not in CHAT_SESSIONS:
+        CHAT_SESSIONS[session_id] = {"current_field_index": 0, "answers": {}}
+
+    session = CHAT_SESSIONS[session_id]
+    idx = session["current_field_index"]
+
+    # If user provided answer for previous question, store it
+    if idx > 0 and answer is not None:
+        field_name = CHAT_FIELDS[idx-1]
+        val = answer
+        # convert yes/no to bool for boolean fields
+        if field_name in ["previous_balance_flag", "late_payment_history", "wants_loan_insurance"]:
+            val = answer.strip().lower() in ["yes", "true", "1"]
+        # convert numbers
+        elif field_name in ["age", "dependents", "years_of_employment", "annual_salary",
+                            "collateral_value", "savings_balance", "previous_loan_amount",
+                            "total_emi_amount_per_month", "loan_amount",
+                            "repayment_term_months", "num_credit_cards", "avg_credit_utilization_pct"]:
+            try:
+                val = float(answer)
+                if val.is_integer():
+                    val = int(val)
+            except Exception:
+                val = 0
+        session["answers"][field_name] = val
+
+    # If all fields answered, compute result
+    if idx >= len(CHAT_FIELDS):
+        payload = ManualForm(**session["answers"])
+        prob = compute_mock_probability(payload)
+        reasons = reasons_for_ineligibility(payload, prob) if prob < 0.5 else []
+        file_id = str(uuid.uuid4())
+        filename = f"loan_report_{file_id}"
+        pdf_path = build_pdf(payload, prob, reasons, filename)
+
+        # Cleanup session
+        del CHAT_SESSIONS[session_id]
+
+        return {
+            "status": "completed",
+            "eligibility": "eligible" if prob >= 0.5 else "not eligible",
+            "probability": round(float(prob), 4),
+            "reasons": reasons,
+            "report_url": f"/reports/{os.path.basename(pdf_path)}"
+        }
+
+    # Ask next question
+    question = FIELD_QUESTIONS[CHAT_FIELDS[idx]]
+    session["current_field_index"] += 1
+    return {"status": "in_progress", "question": question}

@@ -78,25 +78,3 @@ export const downloadReport = async (reportUrl: string): Promise<void> => {
     throw new Error('Failed to download report');
   }
 };
-
-// Keep existing Rasa functions for backward compatibility
-export const sendToRasa = async (message: string, sender: string) => {
-  try {
-    const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, sender }),
-    });
-
-    let data = [];
-    try {
-      data = await response.json();
-    } catch {
-      console.warn("Rasa returned non-JSON or empty response.");
-    }
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error("Rasa API Error:", error);
-    return [];
-  }
-};
