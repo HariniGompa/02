@@ -120,6 +120,25 @@ const ManualForm = () => {
       const response = await submitLoanApplication(payload);
       setResult(response);
 
+      // Prepare prediction object for chatbot UI
+      const predictionForChat = {
+        eligible: response.eligibility
+          ? response.eligibility === "eligible"
+          : response.probability >= 0.5,
+        probability: response.probability,
+        reason: response.reasons?.join(", ") || "",
+        recommendations: [] as string[],
+        report_url: response.report_url,
+        session_id: response.session_id,
+      };
+
+      // Make result available for Chatbot page
+      try {
+        localStorage.setItem("prediction_result", JSON.stringify(predictionForChat));
+      } catch (storageErr) {
+        console.warn("Failed to persist prediction for chatbot:", storageErr);
+      }
+
       // store in supabase if user exists
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -141,6 +160,11 @@ const ManualForm = () => {
         title: "Application submitted successfully!",
         description: "Your loan application has been processed.",
       });
+
+      // Optionally redirect user into chatbot with this session
+      if (response.session_id) {
+        navigate(`/chatbot?session_id=${encodeURIComponent(response.session_id)}`);
+      }
     } catch (error) {
       console.error("Error submitting application:", error);
       toast({

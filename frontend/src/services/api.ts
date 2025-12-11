@@ -33,6 +33,8 @@ export interface LoanResponse {
   probability: number;
   reasons: string[];
   report_url: string;
+  eligibility?: string;
+  session_id?: string;
   message?: string;
 }
 

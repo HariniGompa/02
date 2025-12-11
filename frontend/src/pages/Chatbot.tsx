@@ -10,7 +10,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -99,8 +99,10 @@ const Chatbot = () => {
   const [downloadAfterVerification, setDownloadAfterVerification] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true); // Head speaker
-  const [chatbotSessionId] = useState<string>(() => uuidv4());
+  const [showManualBanner, setShowManualBanner] = useState(false);
+  const [chatbotSessionId, setChatbotSessionId] = useState<string>(() => uuidv4());
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   // Voice recognition
@@ -146,8 +148,19 @@ const Chatbot = () => {
     }
   }, [toast]);
 
-  // Load user, profile, previous prediction
+  // Load user, profile, previous prediction, and optional chatbot session from URL
   useEffect(() => {
+    // If a session_id is present in the URL, use it
+    try {
+      const params = new URLSearchParams(location.search);
+      const sessionFromUrl = params.get("session_id");
+      if (sessionFromUrl) {
+        setChatbotSessionId(sessionFromUrl);
+      }
+    } catch {
+      // ignore URL parsing errors
+    }
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -172,9 +185,17 @@ const Chatbot = () => {
         };
         setMessages(prev => [...prev, resultMessage]);
         localStorage.removeItem("prediction_result");
+
+        // If prediction carries a session_id and URL didn't override, adopt it
+        if (prediction.session_id) {
+          setChatbotSessionId((current) => current || prediction.session_id);
+        }
+
+        // Show manual-form banner until user starts chatting
+        setShowManualBanner(true);
       } catch { }
     }
-  }, []);
+  }, [location.search]);
 
   const loadOrCreateConversation = async (userId: string) => {
     const { data: conversations } = await supabase.from("chat_conversations").select("*").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1);
@@ -283,6 +304,8 @@ const Chatbot = () => {
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
+    // User started chatting; hide manual-form banner
+    setShowManualBanner(false);
     const userMessage: Message = { role: "user", content: input, timestamp: new Date(), voice: true };
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(userMessage);
@@ -339,9 +362,10 @@ const Chatbot = () => {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="border-b bg-card p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md">
-          <h1 className="text-xl font-bold">Loan Eligibility Chat</h1>
-          <div className="flex items-center gap-2">
+        <div className="border-b bg-card p-4 flex flex-col gap-2 sticky top-0 z-50 backdrop-blur-md">
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-bold">Loan Eligibility Chat</h1>
+            <div className="flex items-center gap-2">
             {lastPrediction && user && (
               <>
                 {profile?.two_fa_enabled ? (
@@ -360,7 +384,24 @@ const Chatbot = () => {
               <Button variant="ghost" size="icon" onClick={() => navigate("/profile")} className={`rounded-full border-2 ${profileIconColor} ${profileBgClass}`}><User className="h-5 w-5" /></Button>
               <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5" /></Button>
             </>}
+            </div>
           </div>
+
+          {lastPrediction && showManualBanner && (
+            <div className="flex justify-between items-center text-xs md:text-sm px-3 py-2 rounded-md bg-muted/80 border border-muted-foreground/20">
+              <span>
+                This result was generated from your manual loan application. You can adjust your details and recalculate if needed.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-2 shrink-0"
+                onClick={() => navigate("/manual-form")}
+              >
+                Edit Form
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Messages */}

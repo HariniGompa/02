@@ -259,8 +259,20 @@ async def health():
 # Manual form endpoint
 @app.post("/manual-form")
 async def manual_form(payload: ManualForm, request: Request):
+    # Compute eligibility immediately
     prob = compute_mock_probability(payload)
     reasons = reasons_for_ineligibility(payload, prob) if prob < 0.5 else []
+
+    # Create a chatbot session pre-filled with this manual form data
+    session_id = str(uuid.uuid4())
+    # Only keep fields that chatbot flow is aware of
+    answers = {field: getattr(payload, field) for field in CHAT_FIELDS}
+    CHAT_SESSIONS[session_id] = {
+        "current_field_index": len(CHAT_FIELDS),
+        "answers": answers,
+    }
+
+    # Build PDF report
     file_id = str(uuid.uuid4())
     filename = f"loan_report_{file_id}"
     pdf_path = build_pdf(payload, prob, reasons, filename)
@@ -269,7 +281,8 @@ async def manual_form(payload: ManualForm, request: Request):
         "eligibility": "eligible" if prob >= 0.5 else "not eligible",
         "probability": round(float(prob), 4),
         "reasons": reasons,
-        "report_url": f"/reports/{os.path.basename(pdf_path)}"
+        "report_url": f"/reports/{os.path.basename(pdf_path)}",
+        "session_id": session_id,
     }
     return JSONResponse(content=result)
 
